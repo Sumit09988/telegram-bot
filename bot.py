@@ -1,11 +1,9 @@
 import requests
 import time
-import re
 import json
-import os
 
-BOT_TOKEN = os.getenv("7671937313:AAGfz6zP6EXrp0yYb7T4ODQwY-dXcX3Ph1g")
-API_KEY = os.getenv("hKgZaEjblCvfpGmcp7PaV9px7EabQzkn")
+BOT_TOKEN = "7671937313:AAGfz6zP6EXrp0yYb7T4ODQwY-dXcX3Ph1g"
+API_KEY = "hKgZaEjblCvfpGmcp7PaV9px7EabQzkn"
 
 ADMIN_ID = 7515864015
 CHANNEL_USERNAME = "@SUMITDARKOSINT"
@@ -38,14 +36,12 @@ def send_message(chat_id, text):
     }
     requests.post(url, data=data)
 
-# ✅ Number auto fix (no country code needed)
 def format_number(num):
     num = num.strip().replace(" ", "")
     
     if num.startswith("+"):
         return num
     
-    # India default
     if len(num) == 10:
         return "+91" + num
     
@@ -118,7 +114,7 @@ def handle(updates):
 
             if not number:
                 send_message(chat_id, "⚠️ Send valid number (10 digits)")
-                return
+                continue
 
             result = get_number_info(number)
             send_message(chat_id, result)
