@@ -2,9 +2,10 @@ import requests
 import time
 import re
 import json
+import os
 
-BOT_TOKEN = "7671937313:AAGfz6zP6EXrp0yYb7T4ODQwY-dXcX3Ph1g"
-API_KEY = "hKgZaEjblCvfpGmcp7PaV9px7EabQzkn"
+BOT_TOKEN = os.getenv("7671937313:AAGfz6zP6EXrp0yYb7T4ODQwY-dXcX3Ph1g")
+API_KEY = os.getenv("hKgZaEjblCvfpGmcp7PaV9px7EabQzkn")
 
 ADMIN_ID = 7515864015
 CHANNEL_USERNAME = "@SUMITDARKOSINT"
@@ -12,7 +13,6 @@ CHANNEL_USERNAME = "@SUMITDARKOSINT"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/"
 
 users = set()
-banned_users = set()
 last_update_id = None
 
 def footer(text):
@@ -38,46 +38,40 @@ def send_message(chat_id, text):
     }
     requests.post(url, data=data)
 
-def check_join(user_id):
-    url = BASE_URL + "getChatMember"
-    params = {"chat_id": CHANNEL_USERNAME, "user_id": user_id}
-    res = requests.get(url, params=params).json()
-    status = res.get("result", {}).get("status")
-    return status in ["member", "administrator", "creator"]
-
-def is_valid_number(text):
-    return re.match(r'^\+\d{10,15}$', text)
+# ✅ Number auto fix (no country code needed)
+def format_number(num):
+    num = num.strip().replace(" ", "")
+    
+    if num.startswith("+"):
+        return num
+    
+    # India default
+    if len(num) == 10:
+        return "+91" + num
+    
+    return None
 
 def get_number_info(number):
-    headers = {"apikey": API_KEY}
-    params = {"number": number}
-    url = "https://api.apilayer.com/number_verification/validate"
+    url = f"http://apilayer.net/api/validate?access_key={API_KEY}&number={number}"
 
     try:
-        res = requests.get(url, headers=headers, params=params)
+        res = requests.get(url)
         data = res.json()
 
         if not data.get("valid"):
-            return "❌ Invalid number."
+            return "❌ Invalid number or no data found."
 
         return f"""📱 Number Information:
 
-🌍 Country: {data.get("countryname")}
+🌍 Country: {data.get("country_name")}
 📍 Location: {data.get("location")}
 📡 Carrier: {data.get("carrier")}
-📶 Line Type: {data.get("linetype")}
+📶 Line Type: {data.get("line_type")}
 
-🔢 Number: {data.get("internationalformat")}
+🔢 Number: {data.get("international_format")}
 """
     except:
-        return "⚠️ Server error."
-
-def broadcast(msg):
-    for user in users:
-        try:
-            send_message(user, msg)
-        except:
-            pass
+        return "⚠️ API error."
 
 def get_updates():
     global last_update_id
@@ -100,56 +94,33 @@ def handle(updates):
 
         msg = update["message"]
         chat_id = msg["chat"]["id"]
-        user_id = msg["from"]["id"]
         text = msg.get("text", "")
-
-        users.add(user_id)
-
-        if user_id in banned_users:
-            return
-
-        if not check_join(user_id):
-            send_message(chat_id, f"🚫 Join channel first:\n👉 {CHANNEL_USERNAME}")
-            return
 
         if text == "/start":
             send_message(chat_id, "🤖 Welcome! Use buttons below.")
 
         elif text == "📱 Number Search":
-            send_message(chat_id, "📲 Send number with country code\nExample: +919876543210")
+            send_message(chat_id, "📲 Send any number (no need country code)")
 
         elif text == "📊 Bot Stats":
-            send_message(chat_id, f"👥 Total Users: {len(users)}")
+            send_message(chat_id, f"👥 Users: {len(users)}")
 
         elif text == "👨‍💻 Developer":
             send_message(chat_id, "👨‍💻 Developer: @T4HKR")
 
         elif text == "ℹ️ Help":
-            send_message(chat_id, "ℹ️ Send number with country code\nExample: +919876543210")
-
-        elif user_id == ADMIN_ID:
-
-            if text.startswith("/ban"):
-                uid = int(text.split()[1])
-                banned_users.add(uid)
-                send_message(chat_id, f"✅ Banned {uid}")
-
-            elif text.startswith("/unban"):
-                uid = int(text.split()[1])
-                banned_users.discard(uid)
-                send_message(chat_id, f"✅ Unbanned {uid}")
-
-            elif text.startswith("/broadcast"):
-                msg_text = text.replace("/broadcast ", "")
-                broadcast(msg_text)
-                send_message(chat_id, "✅ Broadcast sent")
+            send_message(chat_id, "ℹ️ Send any mobile number (10 digits)")
 
         else:
-            if not is_valid_number(text):
-                send_message(chat_id, "⚠️ Invalid format.\nExample: +919876543210")
+            users.add(chat_id)
+
+            number = format_number(text)
+
+            if not number:
+                send_message(chat_id, "⚠️ Send valid number (10 digits)")
                 return
 
-            result = get_number_info(text)
+            result = get_number_info(number)
             send_message(chat_id, result)
 
 def main():
